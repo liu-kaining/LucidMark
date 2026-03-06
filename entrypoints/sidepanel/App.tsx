@@ -54,6 +54,12 @@ export default function App() {
       console.log('SidePanel received message:', message);
 
       if (message.type === 'TEXT_SELECTED') {
+        console.log('TEXT_SELECTED payload:', {
+          text: message.payload.text,
+          html: message.payload.html,
+          hasHtml: !!message.payload.html,
+          htmlLength: message.payload.html?.length || 0,
+        });
         setSelectedText(
           message.payload.text,
           message.payload.html,

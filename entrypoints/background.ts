@@ -78,7 +78,11 @@ export default defineBackground(() => {
   // 监听来自 content script 的消息
   browser.runtime.onMessage.addListener((message: MessageAction, sender) => {
     if (message.type === 'TEXT_SELECTED') {
-      console.log('Text selected from content script:', message.payload);
+      console.log('Text selected from content script:', {
+        text: message.payload.text?.substring(0, 50),
+        hasHtml: !!message.payload.html,
+        htmlLength: message.payload.html?.length || 0,
+      });
 
       // 转发给 sidePanel
       browser.runtime.sendMessage(message);

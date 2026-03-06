@@ -32,6 +32,40 @@ export default defineContentScript({
         div.appendChild(fragment);
         selectedHtml = div.innerHTML;
 
+        // 如果选中内容不包含完整表格，尝试获取整个表格
+        if (!selectedHtml.includes('<table')) {
+          const commonAncestor = range.commonAncestorContainer;
+          let tableElement: HTMLElement | null = null;
+          let listElement: HTMLElement | null = null;
+
+          // 检查 commonAncestor 是否是表格或包含在表格中
+          if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+            tableElement = (commonAncestor as HTMLElement).closest('table');
+            listElement = (commonAncestor as HTMLElement).closest('ul, ol');
+          } else if (commonAncestor.parentElement) {
+            tableElement = commonAncestor.parentElement.closest('table');
+            listElement = commonAncestor.parentElement.closest('ul, ol');
+          }
+
+          // 如果找到了表格元素，使用整个表格
+          if (tableElement) {
+            selectedHtml = tableElement.outerHTML;
+            console.log('Using entire table HTML instead of selection');
+          } else if (listElement) {
+            // 如果是列表，使用整个列表
+            selectedHtml = listElement.outerHTML;
+            console.log('Using entire list HTML instead of selection');
+          }
+        }
+
+        console.log('Captured HTML:', {
+          length: selectedHtml.length,
+          preview: selectedHtml.substring(0, 200),
+          hasTable: selectedHtml.includes('<table'),
+          hasUl: selectedHtml.includes('<ul'),
+          hasLi: selectedHtml.includes('<li'),
+        });
+
         // 获取上下文
         const container = range.commonAncestorContainer;
         const textNode = container.nodeType === Node.TEXT_NODE
