@@ -6,8 +6,9 @@
 
 ### 🎨 智能配图生成
 - **上下文感知**：自动提取选中文本、网页标题、前后语境
-- **AI 增强 Prompt**：将文字转化为专业级英文绘画指令
-- **多模型支持**：Gemini / Custom OpenAI 自由切换
+- **AI 增强 Prompt**：将中文文本转化为专业级图像生成提示词，深度整合艺术风格
+- **富文本支持**：保持表格、Markdown 等选中内容的格式显示
+- **多模型双配置**：Gemini（单配置）/ Custom OpenAI（文本+图像双配置分离）
 - **8 种风格预设**：电影感、吉卜力风、赛博朋克等
 
 ### 🖱️ 多维触发方式
@@ -21,10 +22,12 @@
 - **Framer Motion**：流畅的交互动效
 - **响应式布局**：瀑布流画廊展示
 
-### 🔐 本地优先
+### 🔐 安全与本地优先
 - **零遥测**：无任何用户行为追踪
 - **本地存储**：API Key 仅存储在 chrome.storage.local
 - **IndexedDB**：图片以 Blob 格式本地存储，避免内存泄漏
+- **密码安全**：API Key 显示为 `sk-...xxxx` 格式
+- **删除保护**：所有删除操作都有二次确认弹窗
 - **一键导出**：ZIP 打包所有生成图片
 
 ---
@@ -59,20 +62,37 @@ npm run build:firefox
 
 构建产物位于 `.output/chrome-mv3/` 目录。
 
-### 4. 加载扩展
+### 4. 构建和加载扩展
 
+```bash
+# 清理和构建
+npm run build
+
+# 开发模式热重载
+npm run dev
+```
+
+**加载扩展**：
 1. 打开 Chrome，访问 `chrome://extensions/`
 2. 开启"开发者模式"
 3. 点击"加载已解压的扩展程序"
 4. 选择 `.output/chrome-mv3/` 目录
 
+**首次使用验证**：
+1. 打开设置面板，正确配置 AI 服务
+2. 验证 Custom OpenAI 双配置（Text+Image）的正确性
+3. 尝试选中文本进行生成测试
+
 ### 5. 配置 API Key
 
 1. 点击浏览器工具栏的 LucidMark 图标
 2. 点击右上角设置按钮 ⚙️
-3. 选择 Provider 并输入 API Key
+3. 选择 Provider 并配置：
    - **Gemini**：只需填入 API Key
-   - **Custom OpenAI**：需填入 Base URL、API Key、模型名称
+   - **Custom OpenAI**：
+     - **文本模型配置**：Base URL、API Key、模型名称（如 gpt-4o）用于提示词优化
+     - **图像模型配置**：Base URL、API Key、模型名称（如 dall-e-3）用于图像生成
+     - ⚠️ 两部分都需要正确配置才能使用
 
 ---
 
@@ -89,9 +109,12 @@ npm run build:firefox
 3. 等待生成完成
 
 ### 图片管理
-- **拖拽使用**：直接拖拽图片到编辑器（如 Notion、语雀）
-- **单图下载**：悬停图片点击下载按钮
-- **批量导出**：点击"打包下载"导出所有图片为 ZIP
+- **1792x1024 宽屏生成**：原生高清大图，保留文字清晰度
+- **中文优化支持**：增强中文文本在生成图像中的显示质量
+- **富文本选中展示**：表格、Markdown 等内容格式不变
+- **批量下载**：多选图片打包下载
+- **预览删除**：图片预览页面提供详情查看和安全删除
+- **一键下载**：列表页简易操作体验
 
 ---
 
@@ -99,15 +122,16 @@ npm run build:firefox
 
 ### 核心技术栈
 
-| 类别 | 技术 |
-|------|------|
-| 扩展框架 | WXT (Vite 驱动 MV3) |
-| 前端视图 | React 18 + Tailwind CSS |
-| 动效 | Framer Motion |
-| 状态管理 | Zustand |
-| 本地存储 | Dexie.js (IndexedDB) |
-| 文件处理 | JSZip + FileSaver.js |
-| AI SDK | @google/generative-ai |
+| 类别 | 技术 | 特性 |
+|------|------|------|
+| 扩展框架 | WXT (Vite 驱动 MV3) | 现代化 Manifest V3 开发体验 |
+| 前端视图 | React 19 + Tailwind CSS | 最新 React 特性，原子化样式 |
+| 动效 | Framer Motion | 流畅的物理动效系统 |
+| 状态管理 | Zustand + Persist Middleware | 轻量级状态管理，本地持久化 |
+| 本地存储 | Dexie.js (IndexedDB) | 高效的图片 Blob 存储 |
+| 文件处理 | JSZip + FileSaver.js | 批量图片打包下载 |
+| AI SDK | @google/generative-ai | Gemini API 原生支持 |
+| UI 组件 | Lucide React + 自定义 | 完整图标库，简约设计 |
 
 ### 项目结构
 
@@ -143,7 +167,7 @@ LucidMark/
 
 ### AI Provider-Adapter 架构
 
-支持灵活扩展多种 AI 模型：
+支持灵活扩展多种 AI 模型，支持双配置分离架构：
 
 ```typescript
 interface AIProvider {
@@ -151,13 +175,19 @@ interface AIProvider {
   name: string;
   type: 'gemini' | 'custom';
   
-  // Prompt 增强
-  enhancePrompt(text, context, style, credentials): Promise<string>;
+  // Prompt 增强：深度整合风格信息到提示词
+  enhancePrompt(text, context, style, credentials, language): Promise<string>;
   
-  // 图片生成
+  // 图片生成：独立配置图像生成服务
   generateImage(prompt, credentials): Promise<Blob>;
 }
 ```
+
+**提示词优化流程**：
+1. 文本提取 + 风格信息整合 → AI 模型
+2. AI 深度理解风格要求 → 生成风格融合的提示词
+3. 智能后缀补充 → 增强特定视觉元素
+4. 专业级图像生成提示词 → 图像模型
 
 ---
 
@@ -190,20 +220,66 @@ interface AIProvider {
 - Prompt 增强：`gemini-2.0-flash`
 - 图片生成：`gemini-2.0-flash-exp-image-generation`
 
-### Custom OpenAI Provider
+### Custom OpenAI Provider（双配置分离）
 
 ```typescript
 {
-  apiKey: string;      // API Key
-  baseUrl: string;     // API Base URL (如 https://api.openai.com/v1)
-  textModel: string;   // 文本模型 (如 gpt-4)
-  imageModel: string;  // 图片模型 (如 dall-e-3)
+  textModel: {
+    apiKey: string;      // 文本生成 API Key
+    baseUrl: string;     // API Base URL (如 https://api.openai.com/v1)
+    modelName: string;   // 文本模型 (如 gpt-4o、gpt-4-turbo)
+  };
+  imageModel: {
+    apiKey: string;      // 图像生成 API Key（可能与文本相同）
+    baseUrl: string;     // API Base URL（可能与文本相同或不同）
+    modelName: string;   // 图像模型 (如 dall-e-3、stable-diffusion)
+  }
 }
 ```
 
+**注意**：
+- 两部分配置都需要正确填写才能使用 Custom OpenAI
+- Base URL 必须以 `/v1` 结尾（OpenAI 兼容格式）
+- 支持使用不同模型、不同 API 服务的技术栈分离
+
 ---
 
-## 📦 依赖说明
+## � 本次开发更新日志（2026-03）
+
+### 架构改进
+1. **Custom OpenAI 双配置分离**：
+   - 文本模型（Prompt 增强）和图像模型独立配置
+   - 支持不同 Base URL、API Key、模型名称
+   - 完整的两部分验证机制
+
+2. **提示词优化重构**：
+   - AI 深度理解并整合风格信息到提示词中
+   - 避免生硬的风格后缀拼接
+   - 防止返回空内容或无意义优化
+
+### 用户体验改进
+1. **富文本选择支持**：
+   - HTML/Markdown 内容保持格式显示
+   - 表格、代码块等特殊格式正确渲染
+
+2. **图片质量提升**：
+   - 1792x1024 宽屏高清图片生成
+   - 增强中文文字的图像渲染清晰度
+   - 保留原始尺寸下载
+
+3. **操作安全优化**：
+   - 删除操作二次确认弹窗
+   - 列表页操作简化，专注下载功能
+   - API Key 安全显示保护
+
+### 代码质量
+1. **TypeScript 类型安全增强**
+2. **错误处理和边界条件完善**
+3. **UI 组件状态管理优化**
+
+---
+
+## �📦 依赖说明
 
 ### 生产依赖
 - `react` / `react-dom` - UI 框架
@@ -222,12 +298,25 @@ interface AIProvider {
 
 ---
 
-## 🛡️ 隐私与安全
+## 🛡️ 技术特性与中文优化
 
+### 隐私与安全
 - ✅ **零遥测**：不收集任何用户数据
 - ✅ **本地存储**：所有配置仅存储在本地
 - ✅ **API Key 安全**：不显示明文，仅展示 `sk-...xxxx`
 - ✅ **网络白名单**：仅允许请求配置的 API 端点
+
+### 中文专项优化
+- ✅ **中文文本提取**：准确捕获中文上下文信息
+- ✅ **中文图像生成**：优化提示词确保中文文字清晰显示
+- ✅ **中文字符支持**：增强图像生成模型的中文渲染能力
+- ✅ **中文界面**：全中文本地化界面体验
+
+### 稳定性和错误处理
+- ✅ **双重验证**：Text+Image 配置完整验证
+- ✅ **错误重试**：网络异常自动重试机制
+- ✅ **内容安全**：防止返回空内容或无效优化
+- ✅ **用户确认**：关键操作（删除）都有弹窗确认
 
 ---
 
